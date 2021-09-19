@@ -18,13 +18,14 @@ import classifier.utils as utils
 
 class Trainer:
     def __init__(self, model: nn.Module, criterion: nn.Module, optimizer: torch.optim.Optimizer, train_data: DataLoader,
-                 val_data: DataLoader, epochs: int, use_cuda: bool, log_directory: str, save_directory: str,
-                 run_id: str):
+                 val_data: DataLoader, classes_number: int, epochs: int, use_cuda: bool, log_directory: str,
+                 save_directory: str, run_id: str):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
         self.train_data = train_data
         self.val_data = val_data
+        self.classes_number = classes_number
         self.epochs = epochs
         self.device = utils.get_device(use_cuda)
         self.save_directory = Path(save_directory)
@@ -57,12 +58,12 @@ class Trainer:
         time_start = time.time()
         for i, (data, labels) in enumerate(self.train_data):
             self.optimizer.zero_grad()
-            loss = self.__model_step(data, labels, losses, scores, 'train', epoch * self.train_size + i)
+            loss = self.__model_step(data, labels, losses, scores)
             loss.backward()
             self.optimizer.step()
 
             if i % verbosity == 0:
-                self.__log_performance(epoch, i, self.train_size, losses, scores, time_start)
+                self.__log_performance(epoch, i, self.train_size, losses, scores, time_start, 'train')
                 time_start = time.time()
 
     def __validate_model(self, epoch: int) -> None:
@@ -74,32 +75,30 @@ class Trainer:
             time_start = time.time()
             for i, (data, labels) in enumerate(tqdm(self.val_data, desc='Validating data', total=self.val_size,
                                                     file=sys.stdout)):
-                self.__model_step(data, labels, losses, scores, 'validation', epoch * self.val_size + i)
+                self.__model_step(data, labels, losses, scores)
 
         print('Validation results:')
-        self.__log_performance(epoch, self.val_size, self.val_size, losses, scores, time_start)
+        self.__log_performance(epoch, self.val_size, self.val_size, losses, scores, time_start, 'validation')
         self.model.train()
 
-    def __model_step(self, data: Tensor, labels: Tensor, losses: List[float], scores: Dict[str, List[float]],
-                     phase: str, iter_number: int) -> Tensor:
+    def __model_step(self, data: Tensor, labels: Tensor, losses: List[float], scores: Dict[str, List[float]]) -> Tensor:
         data = data.to(self.device)
         labels = labels.to(self.device)
 
         prediction = self.model(data)
         loss = self.criterion(prediction, labels)
         losses.append(loss.item())
-        self.tensorboard.add_scalar(f'Loss/{phase}', loss.item(), iter_number)
 
         for score, scorer in self.scorers.items():
             value = scorer(prediction, labels)
             scores[score].append(value)
-            self.tensorboard.add_scalar(f'{score}/{phase}', value, iter_number)
 
         return loss
 
     def __save_checkpoint(self, epoch: int) -> None:
         checkpoint = {
             'epoch': epoch,
+            'classes_number': self.classes_number,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict()
         }
@@ -118,12 +117,20 @@ class Trainer:
             epoch = -1
         return epoch
 
-    @staticmethod
-    def __log_performance(epoch: int, iteration: int, iteration_max: int, losses: List[float],
-                          scores: Dict[str, List[float]], time_start: float) -> None:
+    def __log_performance(self, epoch: int, iteration: int, iteration_max: int, losses: List[float],
+                          scores: Dict[str, List[float]], time_start: float, phase: str) -> None:
         iteration_time = time.time() - time_start
         mean_loss = sum(losses) / len(losses)
-        scores_str = ', '.join(f'{score}: {sum(values) / len(values)}' for score, values in scores.items())
+        iteration_step = epoch * iteration_max + iteration
+
+        score_values = []
+        for score, values in scores.items():
+            value = sum(values) / len(values)
+            score_values.append(f'{score}: {value}')
+            self.tensorboard.add_scalar(f'{score}/{phase}', value, iteration_step)
+        self.tensorboard.add_scalar(f'Loss/{phase}', mean_loss, iteration_step)
+
+        scores_str = ', '.join(score_values)
         print(f'Epoch: {epoch}, Iteration: {iteration}/{iteration_max}, Time: {iteration_time}, Loss: {mean_loss}, '
               f'{scores_str}')
         losses.clear()

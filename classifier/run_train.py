@@ -42,6 +42,7 @@ def main():
         optimizer=optimizer,
         train_data=train_loader,
         val_data=validation_loader,
+        classes_number=classes_number,
         epochs=args.epochs,
         use_cuda=args.use_gpu,
         log_directory=args.logs_path,
