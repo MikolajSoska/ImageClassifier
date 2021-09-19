@@ -18,14 +18,13 @@ import classifier.utils as utils
 
 class Trainer:
     def __init__(self, model: nn.Module, criterion: nn.Module, optimizer: torch.optim.Optimizer, train_data: DataLoader,
-                 val_data: DataLoader, classes_number: int, epochs: int, use_cuda: bool, log_directory: str,
-                 save_directory: str, run_id: str):
+                 val_data: DataLoader, epochs: int, use_cuda: bool, log_directory: str, save_directory: str,
+                 run_id: str):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
         self.train_data = train_data
         self.val_data = val_data
-        self.classes_number = classes_number
         self.epochs = epochs
         self.device = utils.get_device(use_cuda)
         self.save_directory = Path(save_directory)
@@ -98,7 +97,6 @@ class Trainer:
     def __save_checkpoint(self, epoch: int) -> None:
         checkpoint = {
             'epoch': epoch,
-            'classes_number': self.classes_number,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict()
         }
