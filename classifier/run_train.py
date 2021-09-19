@@ -10,6 +10,10 @@ from classifier.utils import set_random_seed
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Method parses path arguments.
+    :return: Namespace with parsed arguments
+    """
     parser = argparse.ArgumentParser(description='Parameters for training image classifier.')
     parser.add_argument('--images-path', type=str, required=True, help='Path to training images directory')
     parser.add_argument('--epochs', type=int, default=5, help='Training epochs')
@@ -27,7 +31,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
+    """
+    Method loads training data from given path and trains ResNet50 model with it. Training is performed with Trainer
+    class.
+    """
     args = parse_args()
     set_random_seed(args.seed)
 
