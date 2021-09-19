@@ -1,6 +1,7 @@
+import time
 from collections import defaultdict
 from functools import partial
-from typing import Callable
+from typing import Callable, List, Dict
 
 import torch
 import torch.nn as nn
@@ -27,38 +28,66 @@ class Trainer:
             'Recall': self.__score_recall,
             'F1': self.__score_f1
         }
+        self.train_size = len(train_data)
+        self.val_size = len(val_data)
 
-    def train(self):
+    def train(self, verbosity: int = 50) -> None:
         self.model = self.model.to(self.device)
         self.model.train()
         for epoch in range(self.epochs):
-            self.__train_epoch(epoch)
+            self.__train_epoch(epoch, verbosity)
+            self.__validate_model(epoch)
 
-    def __train_epoch(self, epoch: int):
+    def __train_epoch(self, epoch: int, verbosity: int) -> None:
         losses = []
         scores = defaultdict(list)
-        train_size = len(self.train_data)
+        time_start = time.time()
         for i, (data, labels) in enumerate(self.train_data):
             self.optimizer.zero_grad()
-            data = data.to(self.device)
-            labels: Tensor = labels.to(self.device)
-
-            prediction: Tensor = self.model(data)
-            loss = self.criterion(prediction, labels)
-            losses.append(loss.item())
-
-            for score, scorer in self.scorers.items():
-                scores[score].append(scorer(prediction, labels))
-
+            loss = self.__model_step(data, labels, losses, scores)
             loss.backward()
             self.optimizer.step()
 
-            if i % 50 == 0:
-                mean_loss = sum(losses) / len(losses)
-                scores_str = ', '.join(f'{score}: {sum(values) / len(values)}' for score, values in scores.items())
-                print(f'Epoch: {epoch}, Iteration: {i}/{train_size}, Loss: {mean_loss}, {scores_str}')
-                losses.clear()
-                scores.clear()
+            if i % verbosity == 0:
+                self.__log_performance(epoch, i, self.train_size, losses, scores, time_start)
+                time_start = time.time()
+
+    def __validate_model(self, epoch: int) -> None:
+        self.model.eval()
+        losses = []
+        scores = defaultdict(list)
+        print('Starting validation phase...')
+        with torch.no_grad():
+            time_start = time.time()
+            for data, labels in self.val_data:
+                self.__model_step(data, labels, losses, scores)
+
+        self.__log_performance(epoch, self.val_size, self.val_size, losses, scores, time_start)
+        self.model.train()
+
+    def __model_step(self, data: Tensor, labels: Tensor, losses: List[float], scores: Dict[str, List[float]]) -> Tensor:
+        data = data.to(self.device)
+        labels = labels.to(self.device)
+
+        prediction = self.model(data)
+        loss = self.criterion(prediction, labels)
+        losses.append(loss.item())
+
+        for score, scorer in self.scorers.items():
+            scores[score].append(scorer(prediction, labels))
+
+        return loss
+
+    @staticmethod
+    def __log_performance(epoch: int, iteration: int, iteration_max: int, losses: List[float],
+                          scores: Dict[str, List[float]], time_start: float) -> None:
+        iteration_time = time.time() - time_start
+        mean_loss = sum(losses) / len(losses)
+        scores_str = ', '.join(f'{score}: {sum(values) / len(values)}' for score, values in scores.items())
+        print(f'Epoch: {epoch}, Iteration: {iteration}/{iteration_max}, Time: {iteration_time}, Loss: {mean_loss}, '
+              f'{scores_str}')
+        losses.clear()
+        scores.clear()
 
     @staticmethod
     def __score_classification(prediction: Tensor, target: Tensor, scorer: Callable) -> float:
