@@ -2,6 +2,7 @@ import sys
 import time
 from collections import defaultdict
 from functools import partial
+from pathlib import Path
 from typing import Callable, List, Dict
 
 import torch
@@ -17,7 +18,8 @@ import classifier.utils as utils
 
 class Trainer:
     def __init__(self, model: nn.Module, criterion: nn.Module, optimizer: torch.optim.Optimizer, train_data: DataLoader,
-                 val_data: DataLoader, epochs: int, use_cuda: bool, log_directory: str):
+                 val_data: DataLoader, epochs: int, use_cuda: bool, log_directory: str, save_directory: str,
+                 run_id: str):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
@@ -25,6 +27,8 @@ class Trainer:
         self.val_data = val_data
         self.epochs = epochs
         self.device = utils.get_device(use_cuda)
+        self.save_directory = Path(save_directory)
+        self.run_id = run_id
         self.scorers = {
             'Accuracy': self.__score_accuracy,
             'Precision': self.__score_precision,
@@ -35,15 +39,16 @@ class Trainer:
         self.val_size = len(val_data)
 
         images, _ = next(iter(train_data))
-        run_id = round(time.time())
         self.tensorboard = SummaryWriter(f'{log_directory}/{run_id}')
         self.tensorboard.add_graph(self.model, images)
 
     def train(self, verbosity: int = 50) -> None:
         self.model = self.model.to(self.device)
         self.model.train()
-        for epoch in range(self.epochs):
+        checkpoint_epoch = self.__load_checkpoint()
+        for epoch in range(checkpoint_epoch + 1, self.epochs):
             self.__train_epoch(epoch, verbosity)
+            self.__save_checkpoint(epoch)
             self.__validate_model(epoch)
 
     def __train_epoch(self, epoch: int, verbosity: int) -> None:
@@ -91,6 +96,27 @@ class Trainer:
             self.tensorboard.add_scalar(f'{score}/{phase}', value, iter_number)
 
         return loss
+
+    def __save_checkpoint(self, epoch: int) -> None:
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict()
+        }
+        self.save_directory.mkdir(parents=True, exist_ok=True)
+        torch.save(checkpoint, self.save_directory / f'model-{self.run_id}.pt')
+
+    def __load_checkpoint(self) -> int:
+        checkpoint_path = self.save_directory / f'model-{self.run_id}.pt'
+        if checkpoint_path.exists():
+            checkpoint = torch.load(checkpoint_path)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+            print(f'Loaded checkpoint from: {checkpoint_path}')
+        else:
+            epoch = -1
+        return epoch
 
     @staticmethod
     def __log_performance(epoch: int, iteration: int, iteration_max: int, losses: List[float],
