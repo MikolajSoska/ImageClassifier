@@ -18,6 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--adam-betas', type=float, default=(0.9, 0.999), nargs=2, help='Betas for Adam optimizer')
     parser.add_argument('--adam-eps', type=float, default=1e-8, help='Epsilon value for Adam optimizer')
     parser.add_argument('--use-gpu', action='store_true', help='Train with CUDA')
+    parser.add_argument('--logs-path', type=str, default='./logs', help='Directory to Tensorboard logs')
 
     return parser.parse_args()
 
@@ -37,7 +38,8 @@ def main():
         train_data=train_loader,
         val_data=validation_loader,
         epochs=args.epochs,
-        use_cuda=args.use_gpu
+        use_cuda=args.use_gpu,
+        log_directory=args.logs_path
     )
     trainer.train()
 

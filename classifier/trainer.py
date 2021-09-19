@@ -1,3 +1,4 @@
+import sys
 import time
 from collections import defaultdict
 from functools import partial
@@ -8,13 +9,15 @@ import torch.nn as nn
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from torch import Tensor
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 import classifier.utils as utils
 
 
 class Trainer:
     def __init__(self, model: nn.Module, criterion: nn.Module, optimizer: torch.optim.Optimizer, train_data: DataLoader,
-                 val_data: DataLoader, epochs: int, use_cuda: bool):
+                 val_data: DataLoader, epochs: int, use_cuda: bool, log_directory: str):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
@@ -31,6 +34,11 @@ class Trainer:
         self.train_size = len(train_data)
         self.val_size = len(val_data)
 
+        images, _ = next(iter(train_data))
+        run_id = round(time.time())
+        self.tensorboard = SummaryWriter(f'{log_directory}/{run_id}')
+        self.tensorboard.add_graph(self.model, images)
+
     def train(self, verbosity: int = 50) -> None:
         self.model = self.model.to(self.device)
         self.model.train()
@@ -44,7 +52,7 @@ class Trainer:
         time_start = time.time()
         for i, (data, labels) in enumerate(self.train_data):
             self.optimizer.zero_grad()
-            loss = self.__model_step(data, labels, losses, scores)
+            loss = self.__model_step(data, labels, losses, scores, 'train', epoch * self.train_size + i)
             loss.backward()
             self.optimizer.step()
 
@@ -59,22 +67,28 @@ class Trainer:
         print('Starting validation phase...')
         with torch.no_grad():
             time_start = time.time()
-            for data, labels in self.val_data:
-                self.__model_step(data, labels, losses, scores)
+            for i, (data, labels) in enumerate(tqdm(self.val_data, desc='Validating data', total=self.val_size,
+                                                    file=sys.stdout)):
+                self.__model_step(data, labels, losses, scores, 'validation', epoch * self.val_size + i)
 
+        print('Validation results:')
         self.__log_performance(epoch, self.val_size, self.val_size, losses, scores, time_start)
         self.model.train()
 
-    def __model_step(self, data: Tensor, labels: Tensor, losses: List[float], scores: Dict[str, List[float]]) -> Tensor:
+    def __model_step(self, data: Tensor, labels: Tensor, losses: List[float], scores: Dict[str, List[float]],
+                     phase: str, iter_number: int) -> Tensor:
         data = data.to(self.device)
         labels = labels.to(self.device)
 
         prediction = self.model(data)
         loss = self.criterion(prediction, labels)
         losses.append(loss.item())
+        self.tensorboard.add_scalar(f'Loss/{phase}', loss.item(), iter_number)
 
         for score, scorer in self.scorers.items():
-            scores[score].append(scorer(prediction, labels))
+            value = scorer(prediction, labels)
+            scores[score].append(value)
+            self.tensorboard.add_scalar(f'{score}/{phase}', value, iter_number)
 
         return loss
 
@@ -92,7 +106,7 @@ class Trainer:
     @staticmethod
     def __score_classification(prediction: Tensor, target: Tensor, scorer: Callable) -> float:
         labels = torch.argmax(prediction, dim=-1)
-        return scorer(labels, target)
+        return scorer(labels.cpu(), target.cpu())
 
     @staticmethod
     def __score_accuracy(prediction: Tensor, target: Tensor) -> float:
