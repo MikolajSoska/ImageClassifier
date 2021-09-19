@@ -6,6 +6,7 @@ from torchvision.models import resnet50
 
 from classifier.data import load_data
 from classifier.trainer import Trainer
+from classifier.utils import set_random_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -21,12 +22,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--logs-path', type=str, default='./logs', help='Directory for Tensorboard logs')
     parser.add_argument('--save-path', type=str, default='./model', help='Directory for model checkpoints')
     parser.add_argument('--run-id', type=str, default='classifier', help='ID for run identification')
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    set_random_seed(args.seed)
 
     train_loader, validation_loader, classes_number = load_data(args.images_path, args.batch, args.val_ratio)
     model = resnet50(pretrained=False, num_classes=classes_number)
