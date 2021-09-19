@@ -1,11 +1,36 @@
+from pathlib import Path
 from typing import Tuple, Union
 
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import Dataset
+from torch.utils.data.dataset import T_co
 from torchvision.datasets import ImageFolder
+
+
+class TestDataset(Dataset):
+    def __init__(self, path_to_images: str):
+        self.images = [image for image in Path(path_to_images).glob('*.jpg')]
+        self.transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize(0.5, 0.5)
+        ])
+
+    def __getitem__(self, index: int) -> T_co:
+        image_path = self.images[index]
+        image = Image.open(image_path)
+        image = self.transform(image)
+        image_id = f'{image_path.stem}.jpg'
+
+        return image, image_id
+
+    def __len__(self) -> int:
+        return len(self.images)
 
 
 def load_data(path_to_images: str, batch_size: int, validation_ratio: float = None,
@@ -30,3 +55,10 @@ def load_data(path_to_images: str, batch_size: int, validation_ratio: float = No
         return train_loader, validation_loader, classes_number
     else:
         return DataLoader(dataset, batch_size=batch_size, shuffle=True), classes_number
+
+
+def load_test_data(path_to_images: str, batch_size: int) -> DataLoader:
+    dataset = TestDataset(path_to_images)
+    dataloader = DataLoader(dataset, batch_size)
+
+    return dataloader
