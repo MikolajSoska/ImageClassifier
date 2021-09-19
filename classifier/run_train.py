@@ -31,7 +31,7 @@ def main():
     args = parse_args()
     set_random_seed(args.seed)
 
-    train_loader, validation_loader, classes_number = load_data(args.images_path, args.batch, args.val_ratio)
+    train_loader, validation_loader, classes_number = load_data(args.images_path, args.batch, args.val_ratio, args.seed)
     model = resnet50(pretrained=False, num_classes=classes_number)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=args.adam_betas, eps=args.adam_eps)

@@ -8,8 +8,8 @@ from torch.utils.data.dataloader import DataLoader
 from torchvision.datasets import ImageFolder
 
 
-def load_data(path_to_images: str, batch_size: int,
-              validation_ratio: float = None) -> Union[Tuple[DataLoader, int], Tuple[DataLoader, DataLoader, int]]:
+def load_data(path_to_images: str, batch_size: int, validation_ratio: float = None,
+              random_seed: int = None) -> Union[Tuple[DataLoader, int], Tuple[DataLoader, DataLoader, int]]:
     transform = transforms.Compose([
         transforms.RandomCrop(256, pad_if_needed=True),
         transforms.RandomHorizontalFlip(),
@@ -22,7 +22,7 @@ def load_data(path_to_images: str, batch_size: int,
     if validation_ratio is not None:
 
         train_indices, validation_indices = train_test_split(torch.arange(len(dataset)), test_size=validation_ratio,
-                                                             stratify=dataset.targets)
+                                                             stratify=dataset.targets, random_state=random_seed)
         train_dataset = Subset(dataset, train_indices)
         validation_dataset = Subset(dataset, validation_indices)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
