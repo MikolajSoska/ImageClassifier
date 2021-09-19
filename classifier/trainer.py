@@ -144,7 +144,7 @@ class Trainer:
             'optimizer_state_dict': self.optimizer.state_dict()
         }
         self.save_directory.mkdir(parents=True, exist_ok=True)
-        torch.save(checkpoint, self.save_directory / f'model-{self.run_id}.pt')
+        torch.save(checkpoint, self.save_directory / f'{self.run_id}.pt')
 
     def __load_checkpoint(self) -> int:
         """
