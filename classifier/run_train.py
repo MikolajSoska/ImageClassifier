@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description='Parameters for training image classifier.')
     parser.add_argument('--images-path', type=str, required=True, help='Path to training images directory')
-    parser.add_argument('--epochs', type=int, default=5, help='Training epochs')
+    parser.add_argument('--epochs', type=int, default=11, help='Training epochs')
     parser.add_argument('--batch', type=int, default=16, help='Batch size')
     parser.add_argument('--val-ratio', type=float, default=0.15, help='How much training data use for validation')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')

@@ -96,3 +96,9 @@ Config file structure:
   "labels_order": [1, 0, 2]
 }
 ```
+
+### Trained files
+
+Files trained for cat, dog, human classification are uploaded in this repository. Tensorboard logs created during
+training are stored in [`logs`](logs) directory. Config file for this task is stored
+in [`saved/config.json`](saved/config.json). Model weights are temporary available [here](https://we.tl/t-lgMEzDN8p0)

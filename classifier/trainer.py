@@ -151,7 +151,7 @@ class Trainer:
         Method loads saved state of model and optimizer from checkpoint file.
         :return: Loaded epoch number
         """
-        checkpoint_path = self.save_directory / f'model-{self.run_id}.pt'
+        checkpoint_path = self.save_directory / f'{self.run_id}.pt'
         if checkpoint_path.exists():
             checkpoint = torch.load(checkpoint_path)
             self.model.load_state_dict(checkpoint['model_state_dict'])
