@@ -16,7 +16,7 @@ Trained model is then saved in a checkpoint file and can be used in classificati
 
 ## Installation
 
-Code was writter with Python 3.7. Required packages are specified in [`requirements.txt`](requirements.txt) file and can
+Code was written with Python 3.7. Required packages are specified in [`requirements.txt`](requirements.txt) file and can
 be installed with:
 
 - `pip install -r requirements.txt`
